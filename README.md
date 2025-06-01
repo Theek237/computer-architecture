@@ -58,7 +58,7 @@ _start:
 
 ## System Calls Reference
 
-### Common System Calls (32-bit Linux)
+### Common System Calls (32-bit)
 
 | EAX | System Call | EBX | ECX | EDX | Description |
 |-----|-------------|-----|-----|-----|-------------|
@@ -114,18 +114,118 @@ _start:
 | ESP | Stack Pointer | Points to top of stack |
 | EBP | Base Pointer | Points to base of current stack frame |
 
-### Instruction Examples
+### Status Flags Register (EFLAGS)
 
-| Instruction | Example | Description |
-|-------------|---------|-------------|
-| mov | `mov eax, 4` | Copy value to register |
-| add | `add eax, 5` | Add values |
-| sub | `sub eax, 3` | Subtract values |
-| int | `int 0x80` | System call interrupt |
-| cmp | `cmp eax, 0` | Compare values |
-| jmp | `jmp label` | Jump to label |
-| je | `je label` | Jump if equal |
-| jne | `jne label` | Jump if not equal |
+| Flag | Bit | Name | Set When | Description |
+|------|-----|------|----------|-------------|
+| CF | 0 | Carry Flag | Carry/borrow occurs | Unsigned overflow |
+| ZF | 6 | Zero Flag | Result is zero | Last operation = 0 |
+| SF | 7 | Sign Flag | Result is negative | Most significant bit = 1 |
+| OF | 11 | Overflow Flag | Signed overflow | Result too big for register |
+| PF | 2 | Parity Flag | Even number of 1s | Low byte has even parity |
+| AF | 4 | Auxiliary Flag | Carry from bit 3 | BCD arithmetic |
+
+## Instructions and Flags
+
+### Arithmetic Instructions
+
+| Instruction | Example | Flags Affected | Description |
+|-------------|---------|----------------|-------------|
+| add | `add eax, 5` | CF, ZF, SF, OF, PF, AF | Add values |
+| sub | `sub eax, 3` | CF, ZF, SF, OF, PF, AF | Subtract values |
+| mul | `mul ebx` | CF, OF | Multiply (unsigned) |
+| div | `div ebx` | undefined | Divide (unsigned) |
+| inc | `inc eax` | ZF, SF, OF, PF, AF | Increment by 1 |
+| dec | `dec eax` | ZF, SF, OF, PF, AF | Decrement by 1 |
+| neg | `neg eax` | CF, ZF, SF, OF, PF, AF | Negate (two's complement) |
+
+### Comparison Instructions
+
+| Instruction | Example | Flags Affected | Description |
+|-------------|---------|----------------|-------------|
+| cmp | `cmp eax, 5` | CF, ZF, SF, OF, PF, AF | Compare (subtract without storing) |
+| test | `test eax, eax` | CF=0, OF=0, ZF, SF, PF | Bitwise AND (without storing) |
+
+### Logical Instructions
+
+| Instruction | Example | Flags Affected | Description |
+|-------------|---------|----------------|-------------|
+| and | `and eax, 0xFF` | CF=0, OF=0, ZF, SF, PF | Bitwise AND |
+| or | `or eax, 0x10` | CF=0, OF=0, ZF, SF, PF | Bitwise OR |
+| xor | `xor eax, eax` | CF=0, OF=0, ZF, SF, PF | Bitwise XOR |
+| not | `not eax` | none | Bitwise NOT |
+| shl | `shl eax, 2` | CF, ZF, SF, OF, PF | Shift left |
+| shr | `shr eax, 2` | CF, ZF, SF, OF, PF | Shift right |
+
+## Conditional Jumps
+
+### Jump Instructions Based on Flags
+
+| Instruction | Full Name | Condition | Flags Checked | Description |
+|-------------|-----------|-----------|---------------|-------------|
+| je / jz | Jump if Equal/Zero | ZF = 1 | ZF | Jump if last result was zero |
+| jne / jnz | Jump if Not Equal/Not Zero | ZF = 0 | ZF | Jump if last result was not zero |
+| js | Jump if Sign | SF = 1 | SF | Jump if last result was negative |
+| jns | Jump if Not Sign | SF = 0 | SF | Jump if last result was positive |
+| jc | Jump if Carry | CF = 1 | CF | Jump if carry occurred |
+| jnc | Jump if Not Carry | CF = 0 | CF | Jump if no carry |
+| jo | Jump if Overflow | OF = 1 | OF | Jump if overflow occurred |
+| jno | Jump if Not Overflow | OF = 0 | OF | Jump if no overflow |
+
+### Conditional Jumps for Signed Numbers
+
+| Instruction | Full Name | Condition | Flags Checked | Use Case |
+|-------------|-----------|-----------|---------------|----------|
+| jg / jnle | Jump if Greater | ZF=0 AND SF=OF | ZF, SF, OF | if (a > b) |
+| jge / jnl | Jump if Greater or Equal | SF = OF | SF, OF | if (a >= b) |
+| jl / jnge | Jump if Less | SF ≠ OF | SF, OF | if (a < b) |
+| jle / jng | Jump if Less or Equal | ZF=1 OR SF≠OF | ZF, SF, OF | if (a <= b) |
+
+### Conditional Jumps for Unsigned Numbers
+
+| Instruction | Full Name | Condition | Flags Checked | Use Case |
+|-------------|-----------|-----------|---------------|----------|
+| ja / jnbe | Jump if Above | CF=0 AND ZF=0 | CF, ZF | if (a > b) unsigned |
+| jae / jnb | Jump if Above or Equal | CF = 0 | CF | if (a >= b) unsigned |
+| jb / jnae | Jump if Below | CF = 1 | CF | if (a < b) unsigned |
+| jbe / jna | Jump if Below or Equal | CF=1 OR ZF=1 | CF, ZF | if (a <= b) unsigned |
+
+## Conditional Jump Examples
+
+### Example 1: Simple Comparison
+```assembly
+mov eax, 10
+mov ebx, 5
+cmp eax, ebx        ; Compare eax with ebx (10 - 5)
+jg greater_label    ; Jump if eax > ebx (jump taken)
+mov ecx, 1          ; This won't execute
+jmp end
+greater_label:
+    mov ecx, 2      ; This will execute
+end:
+```
+
+### Example 2: Loop with Counter
+```assembly
+mov ecx, 5          ; Counter
+loop_start:
+    ; Do something here
+    dec ecx         ; Decrement counter
+    jnz loop_start  ; Jump if not zero (continue loop)
+    ; Loop finished
+```
+
+### Example 3: Checking for Zero
+```assembly
+mov eax, 0
+test eax, eax       ; Check if eax is zero
+jz is_zero         ; Jump if zero flag is set
+mov ebx, 1         ; eax is not zero
+jmp end
+is_zero:
+    mov ebx, 0     ; eax is zero
+end:
+```
 
 ## Assembly Directives
 
@@ -159,7 +259,6 @@ _start:
 | -9 | EBADF | Bad file descriptor |
 | -13 | EACCES | Access denied |
 | -22 | EINVAL | Invalid argument |
-
 
 
 ---
